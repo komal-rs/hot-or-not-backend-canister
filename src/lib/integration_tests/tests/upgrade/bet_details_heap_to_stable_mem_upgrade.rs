@@ -23,10 +23,11 @@ const OLD_INDIVIDUAL_TEMPLATE_WASM_PATH: &str =
     "../../../target/wasm32-unknown-unknown/release/old_individual_user_template.wasm.gz";
 const INDIVIDUAL_TEMPLATE_WASM_PATH: &str =
     "../../../target/wasm32-unknown-unknown/release/individual_user_template.wasm.gz";
+const NEW_INDIVIDUAL_TEMPLATE_WASM_PATH: &str =
+    "../../../target/wasm32-unknown-unknown/release/new_individual_user_template.wasm.gz";
 const POST_CACHE_WASM_PATH: &str =
     "../../../target/wasm32-unknown-unknown/release/post_cache.wasm.gz";
 
-// #[cfg(feature = "bet_details_heap_to_stable_mem_upgrade")]
 #[test]
 fn bet_details_heap_to_stable_mem_upgrade() {
     let pic = PocketIc::new();
@@ -195,6 +196,14 @@ fn bet_details_heap_to_stable_mem_upgrade() {
         encode_one(()).unwrap(),
     );
 
+    // Top up Alice's account
+    let reward = pic.update_call(
+        alice_individual_template_canister_id,
+        admin_principal_id,
+        "get_rewarded_for_signing_up",
+        encode_one(()).unwrap(),
+    );
+
     // Bob places bet on Alice post 1
     let bob_place_bet_arg = PlaceBetArg {
         post_canister_id: alice_individual_template_canister_id,
@@ -307,6 +316,82 @@ fn bet_details_heap_to_stable_mem_upgrade() {
         .unwrap();
     ic_cdk::println!("Bet status: {:?}", bet_status);
 
+    // Get Bob bet details for post 0
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            bob_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res1).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (bob alice post 0): {:?}", bet_details);
+
+    // Get Dan bet details for post 0
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            dan_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res1).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (dan alice post 0): {:?}", bet_details);
+
+    // Get Bob bet details for post 1
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            bob_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res2).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (bob alice post 1): {:?}", bet_details);
+
+    // Get Dan bet details for post 1
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            dan_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res2).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (dan alice post 1): {:?}", bet_details);
+
     // Upgrade the individual template canister to the new version
 
     let individual_template_wasm_bytes = individual_template_canister_wasm();
@@ -389,7 +474,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             post_details
         })
         .unwrap();
-    ic_cdk::println!("Bet details: {:?}", bet_details);
+    ic_cdk::println!("Bet details (bob alice post 0): {:?}", bet_details);
 
     // Get Dan bet details for post 0
 
@@ -408,7 +493,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             post_details
         })
         .unwrap();
-    ic_cdk::println!("Bet details: {:?}", bet_details);
+    ic_cdk::println!("Bet details (dan alice post 0): {:?}", bet_details);
 
     // Get Bob bet details for post 1
 
@@ -427,7 +512,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             post_details
         })
         .unwrap();
-    ic_cdk::println!("Bet details: {:?}", bet_details);
+    ic_cdk::println!("Bet details (bob alice post 1): {:?}", bet_details);
 
     // Get Dan bet details for post 1
 
@@ -446,7 +531,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             post_details
         })
         .unwrap();
-    ic_cdk::println!("Bet details: {:?}", bet_details);
+    ic_cdk::println!("Bet details (dan alice post 1): {:?}", bet_details);
 
     // Bob creates post
 
@@ -473,12 +558,8 @@ fn bet_details_heap_to_stable_mem_upgrade() {
         })
         .unwrap();
 
-    // Forward timer
-    pic.advance_time(Duration::from_secs(60 * 60 * 2));
-    pic.tick();
-
     // Alice bets on Bob post 1
-    let alice_place_bet = PlaceBetArg {
+    let alice_place_bet_arg = PlaceBetArg {
         post_canister_id: bob_individual_template_canister_id,
         post_id: bob_res1,
         bet_amount: 50,
@@ -489,7 +570,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             alice_individual_template_canister_id,
             alice_principal_id,
             "bet_on_currently_viewing_post",
-            encode_one(alice_place_bet).unwrap(),
+            encode_one(alice_place_bet_arg).unwrap(),
         )
         .map(|reply_payload| {
             let bet_status: Result<BettingStatus, BetOnCurrentlyViewingPostError> =
@@ -502,7 +583,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
         .unwrap();
 
     // Dan bets on Bob post 1
-    let dan_place_bet_3 = PlaceBetArg {
+    let dan_place_bet_arg = PlaceBetArg {
         post_canister_id: bob_individual_template_canister_id,
         post_id: bob_res1,
         bet_amount: 50,
@@ -513,7 +594,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             dan_individual_template_canister_id,
             dan_principal_id,
             "bet_on_currently_viewing_post",
-            encode_one(dan_place_bet_3).unwrap(),
+            encode_one(dan_place_bet_arg).unwrap(),
         )
         .map(|reply_payload| {
             let bet_status: Result<BettingStatus, BetOnCurrentlyViewingPostError> =
@@ -542,7 +623,7 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             post_details
         })
         .unwrap();
-    ic_cdk::println!("Bet details: {:?}", bet_details);
+    ic_cdk::println!("Bet details (dan bob post 0): {:?}", bet_details);
 
     // Get Alice bet details for bob post 1
 
@@ -561,7 +642,186 @@ fn bet_details_heap_to_stable_mem_upgrade() {
             post_details
         })
         .unwrap();
-    ic_cdk::println!("Bet details: {:?}", bet_details);
+    ic_cdk::println!("Bet details (alice bob post 0): {:?}", bet_details);
+
+    // Upgrade the individual template canister to the new version
+
+    let individual_template_wasm_bytes = new_individual_template_canister_wasm();
+
+    // Alice canister
+
+    let individual_template_args = IndividualUserTemplateInitArgs {
+        known_principal_ids: Some(known_prinicipal_values.clone()),
+        profile_owner: Some(alice_principal_id),
+        upgrade_version_number: None,
+        url_to_send_canister_metrics_to: None,
+        version: "1".to_string(),
+    };
+    let individual_template_args_bytes = encode_one(individual_template_args).unwrap();
+
+    pic.upgrade_canister(
+        alice_individual_template_canister_id,
+        individual_template_wasm_bytes.clone(),
+        individual_template_args_bytes,
+        None,
+    )
+    .unwrap();
+
+    // Bob canister
+
+    let individual_template_args = IndividualUserTemplateInitArgs {
+        known_principal_ids: Some(known_prinicipal_values.clone()),
+        profile_owner: Some(bob_principal_id),
+        upgrade_version_number: None,
+        url_to_send_canister_metrics_to: None,
+        version: "1".to_string(),
+    };
+    let individual_template_args_bytes = encode_one(individual_template_args).unwrap();
+
+    pic.upgrade_canister(
+        bob_individual_template_canister_id,
+        individual_template_wasm_bytes.clone(),
+        individual_template_args_bytes,
+        None,
+    )
+    .unwrap();
+
+    // Dan canister
+
+    let individual_template_args = IndividualUserTemplateInitArgs {
+        known_principal_ids: Some(known_prinicipal_values.clone()),
+        profile_owner: Some(dan_principal_id),
+        upgrade_version_number: None,
+        url_to_send_canister_metrics_to: None,
+        version: "1".to_string(),
+    };
+    let individual_template_args_bytes = encode_one(individual_template_args).unwrap();
+
+    pic.upgrade_canister(
+        dan_individual_template_canister_id,
+        individual_template_wasm_bytes.clone(),
+        individual_template_args_bytes,
+        None,
+    )
+    .unwrap();
+
+    // Advance timer to allow the canister spawn
+    pic.advance_time(Duration::from_secs(2));
+    pic.tick();
+
+    // Get Bob bet details for post 0
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            bob_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res1).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (bob alice post 0): {:?}", bet_details);
+
+    // Get Dan bet details for post 0
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            dan_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res1).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (dan alice post 0): {:?}", bet_details);
+
+    // Get Bob bet details for post 1
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            bob_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res2).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (bob alice post 1): {:?}", bet_details);
+
+    // Get Dan bet details for post 1
+
+    let bet_details = pic
+        .query_call(
+            alice_individual_template_canister_id,
+            dan_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(res2).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (dan alice post 1): {:?}", bet_details);
+
+    // Get Dan bet details for bob post 1
+
+    let bet_details = pic
+        .query_call(
+            bob_individual_template_canister_id,
+            dan_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(bob_res1).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (dan bob post 0): {:?}", bet_details);
+
+    // Get Alice bet details for bob post 1
+
+    let bet_details = pic
+        .query_call(
+            bob_individual_template_canister_id,
+            alice_principal_id,
+            "get_hot_or_not_bet_details_for_this_post",
+            encode_one(bob_res1).unwrap(),
+        )
+        .map(|reply_payload| {
+            let post_details: BettingStatus = match reply_payload {
+                WasmResult::Reply(payload) => candid::decode_one(&payload).unwrap(),
+                _ => panic!("\n🛑 get_post_details failed\n"),
+            };
+            post_details
+        })
+        .unwrap();
+    ic_cdk::println!("Bet details (alice bob post 0): {:?}", bet_details);
 }
 
 fn old_individual_template_canister_wasm() -> Vec<u8> {
@@ -570,6 +830,10 @@ fn old_individual_template_canister_wasm() -> Vec<u8> {
 
 fn individual_template_canister_wasm() -> Vec<u8> {
     std::fs::read(INDIVIDUAL_TEMPLATE_WASM_PATH).unwrap()
+}
+
+fn new_individual_template_canister_wasm() -> Vec<u8> {
+    std::fs::read(NEW_INDIVIDUAL_TEMPLATE_WASM_PATH).unwrap()
 }
 
 fn post_cache_canister_wasm() -> Vec<u8> {
